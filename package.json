@@ -15,6 +15,7 @@
     "helmet": "^4.6.0",
     "jsonwebtoken": "^8.5.1",
     "mysql2": "^2.2.5",
+    "nodemon": "^2.0.12",
     "sequelize": "^6.6.5",
     "sha1": "^1.1.1"
   }
