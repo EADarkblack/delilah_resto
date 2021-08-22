@@ -5,7 +5,7 @@ module.exports = (sequelize, {DataTypes}) => {
             defaultValue: DataTypes.UUIDV4
         },
         path: {
-            type: DataTypes.STRING(100),
+            type: DataTypes.STRING(100)
         },
     },{
         freezeTableName: true,

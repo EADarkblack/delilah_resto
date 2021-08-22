@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const {PORT, USER, VERSION, PASSWORD, DB_NAME, KEY} = process.env;
-const {Sequelize, QueryTypes} = require('sequelize');
+const {Sequelize} = require('sequelize');
 const sequelize = new Sequelize(`mysql://${USER}:${PASSWORD}@localhost:${PORT}/${DB_NAME}`)
 const jwt = require('jsonwebtoken');
 const sha1 = require('sha1');
@@ -23,14 +23,10 @@ function validateRole(req, res, next) {
     const token = decodeToken.split(' ')[1];
     const decoded = jwt.verify(token, KEY);
     const {is_admin} = decoded;
-    if(is_admin == true) {
-        next();
-    } else {
-        res.status(403).json({
-            error: 'Administrator permissions are required to perform this action.',
-            status: 403
-        });
-    }
+    is_admin == true ? next() : res.status(403).json({
+        error: 'Administrator permissions are required to perform this action.',
+        status: 403
+    });
 }
 
 /**
@@ -44,14 +40,15 @@ function validateLogin(req, res, next) {
     const {email, password} = req.body;
     if(email && password) {
         const encriptedPass = sha1(password);
-        User.findOne({where: {email: email, password: encriptedPass}})
+        User.findOne({where: {email: email, password: encriptedPass},
+            attributes: ['uuid', 'is_admin']
+        })
         .then((data) => {
             if(data) {
-                const {uuid, username, is_admin} = data;
+                const {uuid, is_admin} = data;
                 const tokenData = {
                     id: uuid,
-                    username: username,
-                    is_admin: is_admin
+                    is_admin
                 };
                 const token = jwt.sign(tokenData, KEY);
                 req.token = token;
@@ -68,7 +65,7 @@ function validateLogin(req, res, next) {
                 error: `A problem has occurred with the server: ${err}.`,
                 status: 500
             });
-        })
+        });
     } else {
         res.status(400).json({
             error: 'The information received is invalid or necessary information is missing.',
@@ -90,7 +87,7 @@ function validateIdRole(req, res, next) {
     const token = decodeToken.split(' ')[1];
     const decoded = jwt.verify(token, KEY);
     const {is_admin} = decoded;
-    if (is_admin == 1) {
+    if (is_admin == true) {
         next();
     } else {
         id == decoded.id ? next() : res.status(401).json({
@@ -107,16 +104,18 @@ function validateIdRole(req, res, next) {
  */
 
 router.get(`${VERSION}/user`, validateRole, (req, res) => {
-    sequelize.query('SELECT uuid, username, name, last_name, email, phone, address, is_admin, createdAt, updatedAt FROM user', {type: QueryTypes.SELECT})
+    User.findAll({
+        attributes: {exclude: ['id', 'password']}
+    })
     .then((data) => {
-        res.json(data);
+        res.json(data)
     })
     .catch((err) => {
         res.status(500).json({
             error: `A problem has occurred with the server: ${err}.`,
             status: 500
         });
-    });
+    })
 });
 
 /**
@@ -135,27 +134,26 @@ router.post(`${VERSION}/user/register`, (req, res) => {
         address, 
         password: encriptedPass, 
         is_admin})
-    .then((data) => {
-        const {uuid, username, name, last_name, email, phone, address, is_admin,createdAt, updatedAt} = data;
+    .then(({uuid, username, name, last_name, email, phone, address, is_admin, createdAt, updatedAt}) => {
         res.json({
-            uuid: uuid, 
-            username: username, 
+            uuid, 
+            username, 
             name: name || null, 
             last_name: last_name || null, 
-            email: email, 
-            phone: phone, 
-            address: address, 
-            is_admin: is_admin, 
-            createdAt: createdAt, 
-            updatedAt: updatedAt
+            email, 
+            phone, 
+            address, 
+            is_admin, 
+            createdAt, 
+            updatedAt
         });
     })
     .catch((err) => {
         res.status(400).json({
-            error: err.errors[0].message,
+            error: `The information received is invalid or necessary information is missing: ${err}` ,
             status: 400
-        })
-    })
+        });
+    });
 });
 
 /**
@@ -165,13 +163,13 @@ router.post(`${VERSION}/user/register`, (req, res) => {
 router.post(`${VERSION}/user/login`, validateLogin, (req, res) => {
     const token = req.token;
     const {email} = req.body;
-    sequelize.query('SELECT uuid, username, name, last_name, email, phone, address, is_admin, createdAt, updatedAt FROM user WHERE email= :email', {type: QueryTypes.SELECT, replacements: {
-        email: email
-    }})
-    .then(([data]) => {
+    User.findOne({where: {email: email},
+        attributes: {exclude: ['id', 'password']}
+    })
+    .then((data) => {
         res.json({
-            token: token,
-            user: data
+            token,
+            data
         });
     })
     .catch((err) => {
@@ -188,18 +186,14 @@ router.post(`${VERSION}/user/login`, validateLogin, (req, res) => {
 
 router.get(`${VERSION}/user/:id`, validateRole, (req, res) => {
     const {id} = req.params;
-    sequelize.query('SELECT uuid, username, name, last_name, email, phone, address, is_admin, createdAt, updatedAt FROM user WHERE uuid = :id', {type: QueryTypes.SELECT, replacements: {
-        id: id
-     }})
-    .then(([data]) => {
-        if (data) {
-            res.json(data);
-        } else {
-            res.status(404).json({
-                error: 'User not found.',
-                status: 404
-            });
-        }
+    User.findOne({where: {uuid: id},
+        attributes: {exclude: ['id', 'password']}
+    })
+    .then((data) => {
+        data ? res.json(data) : res.status(404).json({
+            error: 'User not found.',
+            status: 404
+        });  
     })
     .catch((err) => {
         res.status(500).json({
@@ -233,16 +227,16 @@ router.put(`${VERSION}/user/:id`, validateIdRole, (req, res) => {
             if (data) {
                 const {uuid, username, name, last_name, email, phone, address, is_admin, createdAt, updatedAt} = data.dataValues;
                 res.json({
-                    uuid: uuid, 
-                    username: username, 
+                    uuid, 
+                    username, 
                     name: name || null, 
                     last_name: last_name || null, 
-                    email: email, 
-                    phone: phone, 
-                    address: address, 
-                    is_admin: is_admin, 
-                    createdAt: createdAt, 
-                    updatedAt: updatedAt
+                    email, 
+                    phone, 
+                    address, 
+                    is_admin, 
+                    createdAt, 
+                    updatedAt
                 });
             } else {
                 res.status(404).json({

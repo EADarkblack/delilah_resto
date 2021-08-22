@@ -2,6 +2,7 @@ const express  = require('express');
 require('dotenv').config();
 const app = express();
 const product = require('./src/product');
+const order = require('./src/order');
 const user = require('./src/user');
 const helmet = require('helmet');
 const cors = require('cors');
@@ -15,8 +16,9 @@ app.use(cors());
 
 // Routes
 
-app.use(user)
-app.use(product)
+app.use(user);
+app.use(product);
+app.use(order);
 
 // listen
 
