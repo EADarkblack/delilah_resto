@@ -48,7 +48,8 @@ module.exports = (sequelize, {DataTypes}) => {
             defaultValue: 'cash',
             validate: {
                 isIn: {
-                    args: [['cash', 'credit card', 'debit']]
+                    args: [['cash', 'credit card', 'debit']],
+                    msg: 'The order must contain at least one of the following payment types: cash, credit card or debit.'
                 },
                 len: {
                     args: [4, 50],

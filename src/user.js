@@ -7,9 +7,23 @@ const sha1 = require('sha1');
 const user = require('./models/user');
 const User = user(sequelize, Sequelize);
 
-// User.sync({force: true})
-
 // Middlewares
+
+/**
+ * 
+ * @param {[rawHeaders]} req - Gets the token from the request's header.
+ * @param {function} res - Sends to the user the response depending if the user has passed the token on the header request.
+ * @param {function} next - When the user has passed a valid token on the request header proceeds to the next function.
+ */
+
+ function validateToken(req, res, next) {
+    const [, decodeToken] = req.rawHeaders;
+    const token = decodeToken.split(' ')[1];
+    token ? next() : res.status(401).json({
+        error: 'Invalid token',
+        status: 401
+    });;
+}
 
 /**
  * 
@@ -103,7 +117,7 @@ function validateIdRole(req, res, next) {
  * Gets all user from the database (only admin can see this information)
  */
 
-router.get(`${VERSION}/user`, validateRole, (req, res) => {
+router.get(`${VERSION}/user`, validateToken, validateRole, (req, res) => {
     User.findAll({
         attributes: {exclude: ['id', 'password']}
     })
@@ -148,9 +162,9 @@ router.post(`${VERSION}/user/register`, (req, res) => {
             updatedAt
         });
     })
-    .catch((err) => {
+    .catch(() => {
         res.status(400).json({
-            error: `The information received is invalid or necessary information is missing: ${err}` ,
+            error: `The information received is invalid or necessary information is missing.` ,
             status: 400
         });
     });
@@ -184,7 +198,7 @@ router.post(`${VERSION}/user/login`, validateLogin, (req, res) => {
  * Returns the main data from an user selected by his/her id. (Only admin user can perform this action.)
  */
 
-router.get(`${VERSION}/user/:id`, validateRole, (req, res) => {
+router.get(`${VERSION}/user/:id`, validateToken, validateRole, (req, res) => {
     const {id} = req.params;
     User.findOne({where: {uuid: id},
         attributes: {exclude: ['id', 'password']}
@@ -207,7 +221,7 @@ router.get(`${VERSION}/user/:id`, validateRole, (req, res) => {
  * Allows edit any user on the database, for this path any role can perform this action, although only admin user can edit others user data search him/her by the id.
  */
 
-router.put(`${VERSION}/user/:id`, validateIdRole, (req, res) => {
+router.put(`${VERSION}/user/:id`, validateToken, validateIdRole, (req, res) => {
     const {id} = req.params;
     const {username, name, last_name, email, phone, address, password, is_admin} = req.body;
     const encriptedNewPass = password && sha1(password);
@@ -264,7 +278,7 @@ router.put(`${VERSION}/user/:id`, validateIdRole, (req, res) => {
  * Allows delete any user on the database, for this path any role can perform this action, although only admin user can delete others users from the database using his/her respective id.
  */
 
-router.delete(`${VERSION}/user/:id`, validateIdRole, (req, res) => {
+router.delete(`${VERSION}/user/:id`, validateToken, validateIdRole, (req, res) => {
     const {id} = req.params;
     User.findOne({where: {uuid: id}})
     .then((data) => {

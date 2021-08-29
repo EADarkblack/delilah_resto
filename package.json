@@ -1,12 +1,14 @@
 {
   "name": "delilah-resto",
   "version": "1.0.0",
-  "description": "",
+  "description": "Delilah Restó, consists of an API aimed at managing users, orders and products of a restaurant. The Delilah Restó API is built on the basis of the Rest API architecture. And with this, the aim is to implement a CRUD system for an order management system for a restaurant.",
   "main": "index.js",
   "scripts": {
+    "start": "node index",
+    "dev" : "nodemon index",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
+  "author": "Wilmar Miguez",
   "license": "ISC",
   "dependencies": {
     "cors": "^2.8.5",

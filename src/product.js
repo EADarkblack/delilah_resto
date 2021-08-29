@@ -11,11 +11,6 @@ const Image = image(sequelize, Sequelize);
 Product.hasMany(Image, {foreignKey: 'product_id'});
 Image.belongsTo(Product, {foreignKey: 'product_id'});
 
-/* sequelize.sync({force: true})
-.then(() => {
-    console.log("actualizado")
-}) */
-
 // Middlewares
 
 /**
@@ -78,7 +73,7 @@ router.get(`${VERSION}/product`, validateToken, (req, res) => {
                 error: `A problem has occurred with the server: ${err}.`,
                 status: 500
             });
-        })
+        });
     } else {
         Product.findAll({
             attributes: {exclude: ['id']},
@@ -95,7 +90,7 @@ router.get(`${VERSION}/product`, validateToken, (req, res) => {
                 error: `A problem has occurred with the server: ${err}.`,
                 status: 500
             });
-        })
+        });
     }
 });
 
@@ -150,12 +145,12 @@ router.post(`${VERSION}/product/new`, validateToken, validateRole, (req, res) =>
                 short_name,
                 name,
                 description,
-                image: images,
                 category,
                 price,
                 available,
                 createdAt,
-                updatedAt
+                updatedAt,
+                image: images
             });
         })
         .catch((err) => {
@@ -249,12 +244,12 @@ router.put(`${VERSION}/product/:id`, validateToken, validateRole, (req, res) => 
                 short_name, 
                 name, 
                 description, 
-                image: images, 
                 category, 
                 price, 
                 available,
                 createdAt, 
-                updatedAt
+                updatedAt,
+                image: images
             });
         })
         .catch((err) => {

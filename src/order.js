@@ -11,6 +11,8 @@ const item = require('./models/item');
 const Item = item(sequelize, Sequelize);
 const product = require('./models/product');
 const Product = product(sequelize, Sequelize);
+const image = require('./models/image');
+const Image = image(sequelize, Sequelize);
 
 // Relations
 
@@ -23,11 +25,8 @@ Item.belongsTo(Order, {foreignKey: 'order_id'});
 Product.hasMany(Item, {foreignKey: 'product_id'});
 Item.belongsTo(Product, {foreignKey: 'product_id'});
 
-/* Item.sync({force: true})
-.then(() => {
-    console.log("actualizado")
-}); */
-
+Product.hasMany(Image, {foreignKey: 'product_id'});
+Image.belongsTo(Product, {foreignKey: 'product_id'});
 
 // Middlewares
 
@@ -42,8 +41,9 @@ function validateToken(req, res, next) {
     const [, decodeToken] = req.rawHeaders;
     const token = decodeToken.split(' ')[1];
     const decoded = jwt.verify(token, KEY);
-    const {id} = decoded;
+    const {id, is_admin} = decoded;
     req.uuid = id;
+    req.is_admin = is_admin;
     token ? next() : res.status(401).json({
         error: 'Invalid token',
         status: 401
@@ -90,6 +90,54 @@ function validateRole(req, res, next) {
         });
     }
 }
+
+/**
+ * 
+ * @param {{uuid, is_admin, params}} req - Gets from the request the user's data to validate if the user is trying to modify order or item from other user.
+ * @param {function} res - Sends to the user the response depending if the user's data correspond to her/his own data.
+ * @param {function} next - When the user has admin permissions proceeds to the next function the same action happen when the non admin user modify his/her own data.
+ */
+
+function validateOrderId(req, res, next) {
+    const uuid = req.uuid;
+    const is_admin = req.is_admin;
+    const {id} = req.params;
+    if (is_admin == true) {
+        Order.findOne({where: {uuid: id}})
+        .then((data) => {
+            data ? next() : res.status(404).json({
+                error: 'Order not found.',
+                status: 404
+            });
+        })
+        .catch((err) => {
+            res.status(500).json({
+                error: `A problem has occurred with the server: ${err}.`,
+                status: 500
+            });
+        });
+    } else {
+        User.findOne({where: {uuid},
+            include: [{
+                model: Order
+            }]
+        })
+        .then(({orders}) => {
+            const sameOrder = orders.find((orders) => orders.uuid == id);
+            sameOrder ? next() : res.status(403).json({
+                error: 'Administrator permissions are required to perform this action.',
+                status: 403
+            });
+        })
+        .catch((err) => {
+            res.status(500).json({
+                error: `A problem has occurred with the server: ${err}.`,
+                status: 500
+            });
+        });
+    }
+}
+
 // Routes
 
 /**
@@ -106,7 +154,11 @@ router.get(`${VERSION}/order`, validateToken, validateRole, (req, res) => {
                 model: Item,
                 include: [{
                     attributes: {exclude: ['id']},
-                    model: Product
+                    model: Product,
+                    include: [{
+                        attributes: {exclude: ['id', 'product_id']},
+                        model: Image
+                    }]
                 }]
             },
             {
@@ -131,7 +183,11 @@ router.get(`${VERSION}/order`, validateToken, validateRole, (req, res) => {
                 model: Item,
                 include: [{
                     attributes: {exclude: ['id']},
-                    model: Product
+                    model: Product,
+                    include: [{
+                        attributes: {exclude: ['id', 'product_id']},
+                        model: Image
+                    }]
                 }]
             },
             {
@@ -222,12 +278,12 @@ router.post(`${VERSION}/order/new`, validateToken, (req, res) => {
                     res.json({
                         uuid,
                         status,
-                        item: item || [],
-                        user,
                         send_to,
                         payment_type,
                         createdAt,
-                        updatedAt
+                        updatedAt,
+                        item: item || [],
+                        user
                     });
                 })
                 .catch((err) => {
@@ -275,7 +331,11 @@ router.get(`${VERSION}/user/:id/order`, validateToken, validateIdRole, (req, res
                 model: Item,
                 include: {
                     attributes: {exclude: ['id']},
-                    model: Product
+                    model: Product,
+                    include: [{
+                        attributes: {exclude: ['id', 'product_id']},
+                        model: Image
+                    }]
                 }
             }
         }]
@@ -298,7 +358,7 @@ router.get(`${VERSION}/user/:id/order`, validateToken, validateIdRole, (req, res
  * Return an order selected by its id (Only admin can see this information.)
  */
 
-router.get(`${VERSION}/order/:id`, validateToken, validateRole, (req, res) => {
+router.get(`${VERSION}/order/:id`, validateToken, validateOrderId, (req, res) => {
     const {id} = req.params;
     Order.findOne({where: {uuid: id},
         attributes: {exclude: ['id','user_id']},
@@ -307,7 +367,11 @@ router.get(`${VERSION}/order/:id`, validateToken, validateRole, (req, res) => {
             model: Item,
             include: {
                 attributes: {exclude: ['id']},
-                model: Product
+                model: Product,
+                include: [{
+                    attributes: {exclude: ['id', 'product_id']},
+                    model: Image
+                }]
             },
         },
         {
@@ -316,7 +380,7 @@ router.get(`${VERSION}/order/:id`, validateToken, validateRole, (req, res) => {
         }]
     })
     .then((data) => {
-        res.json(data)
+        res.json(data);
     })
     .catch((err) => {
         res.status(500).json({
@@ -327,34 +391,59 @@ router.get(`${VERSION}/order/:id`, validateToken, validateRole, (req, res) => {
 });
 
 /**
- * Allows edit any user on the database, for this path any role can perform this action, although only admin user can edit others user data search him/her by the id.
+ * Allows edit any order on the database. (Only admin user can perform this action.)
  */
 
 router.put(`${VERSION}/order/:id`, validateToken, validateRole, (req, res) => {
     const {id} = req.params;
-    const {short_name, name, description, image, category, price, available} = req.body;
-    const images = image || [];
-    Product.update({
-        short_name,
-        name,
-        description,
-        category,
-        price,
-        available,
+    const {status, send_to, payment_type, item} = req.body;
+    const items = item || [];
+    Order.update({
+        status,
+        send_to,
+        payment_type
     }, {where: {uuid: id}})
     .then(() => {
-        Product.findOne({where:{uuid: id}})
-        .then((data) => {
-            const {id, uuid, short_name, name, description, category, price, available, createdAt, updatedAt} = data.dataValues;
-            const productId = id;
-            images.forEach(({path}) => {
-                Image.create({
-                    path
-                })
-                .then(({id}) => {
-                    Image.update({product_id: productId}, {where: {id: id}})
+        Order.findOne({where: {uuid: id},
+            attributes: {exclude: ['user_id']}
+        })
+        .then(({id, uuid, status, send_to, payment_type, createdAt, updatedAt}) => {
+            const orderId = id;
+            items.forEach(({uuid, amount}) => {
+                const amountValue = amount || 1;
+                Product.findOne({where: {uuid}})
+                .then(({id, price}) => {
+                    const totalPriceItem = price * amountValue;
+                    Item.create({
+                        amount: amountValue,
+                        total_item: totalPriceItem,
+                        order_id: orderId,
+                        product_id: id
+                    })
                     .then(() => {
-                        console.log('Information updated.')
+                        Item.findAll({where: {order_id: orderId}})
+                        .then((data) => {
+                            let newTotal = 0;
+                            data.forEach(({total_item}) => {
+                                newTotal += total_item;
+                            });
+                            Order.update({total: newTotal}, {where: {id: orderId}})
+                            .then(() => {
+                                console.log('Information updated successfully.')
+                            })
+                            .catch((err) => {
+                                res.status(500).json({
+                                    error: `A problem has occurred with the server: ${err}.`,
+                                    status: 500
+                                });
+                            });
+                        })
+                        .catch((err) => {
+                            res.status(500).json({
+                                error: `A problem has occurred with the server: ${err}.`,
+                                status: 500
+                            });
+                        });
                     })
                     .catch((err) => {
                         res.status(500).json({
@@ -371,16 +460,13 @@ router.put(`${VERSION}/order/:id`, validateToken, validateRole, (req, res) => {
                 });
             });
             res.json({
-                uuid, 
-                short_name, 
-                name, 
-                description, 
-                image: images, 
-                category, 
-                price, 
-                available,
-                createdAt, 
-                updatedAt
+                uuid,
+                status,
+                send_to,
+                payment_type,
+                createdAt,
+                updatedAt,
+                item: items
             });
         })
         .catch((err) => {
@@ -390,36 +476,55 @@ router.put(`${VERSION}/order/:id`, validateToken, validateRole, (req, res) => {
             });
         });
     })
-    .catch((err) => {
-        res.status(500).json({
-            error: `A problem has occurred with the server: ${err}.`,
-            status: 500
+    .catch(() => {
+        res.status(400).json({
+            error: `The information received is invalid or necessary information is missing.` ,
+            status: 400
         });
     });
 });
 
 /**
- * 
+ * Allows update an item's data using its id, only admin can perform this action.
  */
 
-router.put(`${VERSION}/product/image/:id`, validateToken, validateRole, (req, res) => {
+router.put(`${VERSION}/order/item/:id`, validateToken, validateRole, (req, res) => {
     const {id} = req.params;
-    const {path} = req.body;
-    Image.update({
-        path
-    }, {where: {uuid: id}})
-    .then(() => {
-        Image.findOne({where:{uuid: id},
-            attributes: {exclude: ['id', 'product_id']}})
-        .then((data) => {
-            if (data) {
-                res.json(data)
-            } else {
-                res.status(404).json({
-                    error: 'Image not found.',
-                    status: 404
+    const {amount} = req.body;
+    const newAmount = amount || 1;
+    Item.findOne({where: {uuid: id},
+        include: [{
+            model: Product,
+        }]
+    })
+    .then(({product}) => {
+        const {price} = product;
+        const newTotalItem = price * newAmount;
+        Item.update({
+            amount: newAmount,
+            total_item: newTotalItem
+        },{where: {uuid: id}})
+        .then(() => {
+            Item.findOne({where: {uuid: id},
+                attributes: {exclude: ['id', 'order_id', 'product_id']},
+                include: [{
+                    attributes: {exclude: ['id']},
+                    model: Product,
+                    include: [{
+                        attributes: {exclude: ['id', 'product_id']},
+                        model: Image
+                    }]
+                }]
+            })
+            .then((data) => {
+                res.json(data);
+            })
+            .catch((err) => {
+                res.status(500).json({
+                    error: `A problem has occurred with the server: ${err}.`,
+                    status: 500
                 });
-            }
+            });
         })
         .catch((err) => {
             res.status(500).json({
@@ -437,18 +542,18 @@ router.put(`${VERSION}/product/image/:id`, validateToken, validateRole, (req, re
 });
 
 /**
- * 
+ * Allows delete an order's item using its id, only admin can perform this action.
  */
 
-router.delete(`${VERSION}/product/image/:id`, validateToken, validateRole, (req, res) => {
+router.delete(`${VERSION}/order/item/:id`, validateToken, validateRole, (req, res) => {
     const {id} = req.params;
-    Image.findOne({where: {uuid: id}})
+    Item.findOne({where: {uuid: id}})
     .then((data) => {
         if (data) {
-            Image.destroy({where: {uuid: id}})
+            Item.destroy({where: {uuid: id}})
             .then(() => {
                 res.json({
-                    message: 'Image deleted successfully.',
+                    message: 'Item deleted successfully.',
                     status: 200
                 })
             })
@@ -460,7 +565,7 @@ router.delete(`${VERSION}/product/image/:id`, validateToken, validateRole, (req,
             });
         } else {
             res.status(404).json({
-                error: 'Image not found.',
+                error: 'Item not found.',
                 status: 404
             });
         }
@@ -474,22 +579,22 @@ router.delete(`${VERSION}/product/image/:id`, validateToken, validateRole, (req,
 });
 
 /**
- * Allows delete any user on the database, for this path any role can perform this action, although only admin user can delete others users from the database using his/her respective id.
+ * Allows delete any order on the database (Only admin can perform this action.)
  */
 
-router.delete(`${VERSION}/product/:id`, validateToken, validateRole, (req, res) => {
+router.delete(`${VERSION}/order/:id`, validateToken, validateRole, (req, res) => {
     const {id} = req.params;
-    Product.findOne({where: {uuid: id}})
+    Order.findOne({where: {uuid: id}})
     .then((data) => {
         if (data) {
-            Product.destroy({where: {uuid: id}})
+            Order.destroy({where: {uuid: id}})
             .then(() => {
-                Image.findAll({where: {product_id: null}})
+                Item.findAll({where: {order_id: null}})
                 .then((data) => {
                     data.forEach(({uuid}) => {
-                        Image.destroy({where: {uuid: uuid}})
+                        Item.destroy({where: {uuid: uuid}})
                         .then(() => {
-                            console.log('Image deleted successfully.');
+                            console.log('Item deleted successfully.');
                         })
                         .catch((err) => {
                             res.status(500).json({
@@ -506,7 +611,7 @@ router.delete(`${VERSION}/product/:id`, validateToken, validateRole, (req, res) 
                     });
                 });
                 res.json({
-                    message: 'Product deleted successfully.',
+                    message: 'Order deleted successfully.',
                     status: 200
                 });
             })
@@ -518,7 +623,7 @@ router.delete(`${VERSION}/product/:id`, validateToken, validateRole, (req, res) 
             });
         } else {
             res.status(404).json({
-                error: 'Product not found.',
+                error: 'Order not found.',
                 status: 404
             });
         }

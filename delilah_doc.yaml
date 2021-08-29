@@ -1,0 +1,1266 @@
+openapi: 3.0.1
+info:
+  title: Documentación Delilah Restó
+  description: >-
+    La presente documentación pertenece al proyecto Delilah Restó, el cual
+    consta de una API   dirigida a la gestión de usuarios, pedidos y productos
+    de un restaurante.
+
+    La API  de Delilah Restó esta contruida en base de la arquitectura API Rest.
+    Y con esta se busca implementar un sistema CRUD para una sistema de gestión
+    de pedidos de un restaurante.
+
+    > Para hacer uso de esta API es necesario crear una cuenta y posteriormente
+    iniciar sesión, esto con el fin de obtener el TOKEN el cual sera solicitado
+    por todos los endpoints de Delilah Restó.
+  contact:
+    email: wilmarfm156@hotmail.com
+  version: 1.0.0
+servers:
+  - url: http://localhost:4000/v1
+tags:
+  - name: usuario
+    description: >-
+      En esta sección se encuentran todos los endpoints que permitiran la
+      gestión de los usuarios de la API Delilah Restó.
+  - name: producto
+    description: >-
+      En esta sección se encuentran todos los endpoints que permitiran la
+      gestión de los platos y productos de la API Delilah Restó.
+  - name: pedido
+    description: >-
+      En esta sección se encuentran todos los endpoints que permitiran la
+      gestión de los pedidos de la API Delilah Restó.
+paths:
+  /user:
+    get:
+      tags:
+        - usuario
+      summary: Lista de usuarios.
+      description: >-
+        Retorna un arreglo con todo los usuarios existentes en la base de datos.
+        (Se requieren permisos de administrador para realizar esta acción.)
+      parameters:
+        - name: token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Operación exitosa.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/user'
+        '401':
+          description: Token invalido.
+        '403':
+          description: Se requieren permisos de administrador para realizar esta acción.
+        '500':
+          description: Ha ocurrido un problema con el servidor.
+  /user/login:
+    post:
+      tags:
+        - usuario
+      summary: Login de usuario.
+      description: Permite al usuario acceder a la aplicación.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/login'
+      responses:
+        '200':
+          description: Usuario logueado exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/user_token'
+        '400':
+          description: La información recibida no es válida o falta información necesaria.
+        '404':
+          description: Correo electrónico y/o contraseña incorrectos.
+        '500':
+          description: Ha ocurrido un problema con el servidor.
+  /user/register:
+    post:
+      tags:
+        - usuario
+      summary: Registro de usuario.
+      description: Permite registrar un usuario nuevo a la aplicación.
+      requestBody:
+        required: true
+        description: Estructura del objeto usuario.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/register'
+      responses:
+        '200':
+          description: Usuario registrado exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/user'
+        '400':
+          description: La información recibida no es válida o falta información necesaria.
+  /user/{id}:
+    get:
+      tags:
+        - usuario
+      summary: Obtener usuario por Id.
+      description: >-
+        Obtiene un usuario por su Id (Se requieren permisos de administrador
+        para realizar esta acción.)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Operación exitosa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/user'
+        '401':
+          description: Token invalido.
+        '403':
+          description: Se requieren permisos de administrador para realizar esta acción.
+        '404':
+          description: Usuario no encontrado.
+        '500':
+          description: Ha ocurrido un problema con el servidor.
+    put:
+      tags:
+        - usuario
+      summary: Actualizar un usuario por Id.
+      description: >-
+        Permite modificar la información de un usuario en particular llamando a
+        este por su Id. (Un usuario administrador puede modificar información de
+        cualquier usuario dentro de la base de datos, mientras que un usuario
+        comun esta limitado unicamente a modificar su propia información.)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        description: Estructura del body con los datos del usuario actualizado.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/register'
+      responses:
+        '200':
+          description: Usuario actualizado exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/user'
+        '401':
+          description: Token invalido.
+        '404':
+          description: Usuario no encontrado.
+        '500':
+          description: Ha ocurrido un problema con el servidor.
+    delete:
+      tags:
+        - usuario
+      summary: Eliminar usuario por Id.
+      description: >-
+        Permite eliminar un usuario buscandolo por su Id. (Un usuario
+        administrador puede eliminar cualquier usuario dentro de la base de
+        datos, mientras que un usuario comun esta limitado unicamente a eliminar
+        su propia cuenta dentro del servidor.)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Usuario eliminado exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/deleted_user'
+        '401':
+          description: Token invalido.
+        '404':
+          description: Usuario no encontrado.
+        '500':
+          description: Ha ocurrido un problema con el servidor.
+  /product:
+    get:
+      tags:
+        - producto
+      summary: Lista de productos.
+      description: >-
+        Retorna un arreglo con todos los productos existentes en la base de
+        datos.
+      parameters:
+        - name: token
+          in: header
+          description: El token debe ir en el encabezado.
+          required: true
+          schema:
+            type: string
+        - name: category
+          in: query
+          description: >-
+            Permite buscar uno o varios productos por el nombre de su categoria.
+            (Los nombres de las categorias son definidos al momento de crear un
+            producto nuevo o al modificar uno ya existente.)
+          schema:
+            type: string
+        - name: q
+          in: query
+          description: Permite buscar uno o varios productos por su nombre.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Operación exitosa.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/product'
+        '401':
+          description: Token invalido.
+        '500':
+          description: Ha ocurrido un problema con el servidor.
+  /product/new:
+    post:
+      tags:
+        - producto
+      summary: Crear un nuevo producto.
+      description: >-
+        Permite crear un producto nuevo. (Se requieren permisos de administrador
+        para realizar esta acción.)
+      parameters:
+        - name: token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: Estructura del objeto producto.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/new'
+      responses:
+        '200':
+          description: >-
+            Producto creado exitosamente. (Al momento de crear un producto nuevo
+            las imagenes estan siendo subidas en un segundo plano, por esa razón
+            no se muestra la información completa del objeto imagen.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/created_product'
+        '400':
+          description: La información recibida no es válida o falta información necesaria.
+        '401':
+          description: Token invalido.
+        '403':
+          description: Se requieren permisos de administrador para realizar esta acción.
+        '500':
+          description: Ha ocurrido un problema con el servidor.
+  /product/{id}:
+    get:
+      tags:
+        - producto
+      summary: Obtener producto por su Id.
+      description: >-
+        Permite obtener un producto en particular buscando a este por medio de
+        su Id.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Operación exitosa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/product'
+        '401':
+          description: Token invalido.
+        '404':
+          description: Producto no encontrado.
+        '500':
+          description: Ha ocurrido un problema con el servidor.
+    put:
+      tags:
+        - producto
+      summary: Actualizar producto por su Id.
+      description: >-
+        Permite actualizar un producto en particular buscando a este por medio
+        de su Id. (Se requieren permisos de administrador para realizar esta
+        acción.)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: token
+          in: header
+          required: true
+          description: >-
+            Es necesario tener permisos de administrador para modificar un
+            producto.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        description: >-
+          Estructura del body con los datos del producto actualizado.  Las
+          imagenes pasadas en este endpoint unicamente seran subidas como
+          imagenes nuevas, para modificar o eliminar una imagen ya existente es
+          necesario usar los endpoints correspondientes a imagenes.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/new'
+      responses:
+        '200':
+          description: Producto actualizado exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/created_product'
+        '401':
+          description: Token invalido.
+        '403':
+          description: Se requiere permisos de administrador para realizar esta acción.
+        '500':
+          description: Ha ocurrido un problema con el servidor.
+    delete:
+      tags:
+        - producto
+      summary: Eliminar producto por su Id.
+      description: >-
+        Permite eliminar un producto en particular buscando a este por medio de
+        su Id. Al momento de eliminar un producto las imagenes que contenia
+        seran igualmente eliminadas. (Se requieren permisos de administrador
+        para realizar esta acción.)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: token
+          in: header
+          required: true
+          description: >-
+            Es necesario tener permisos de administrador para eliminar un
+            producto.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Producto eliminado exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/deleted_product'
+        '401':
+          description: Token invalido.
+        '403':
+          description: Se requiere permisos de administrador para realizar esta acción.
+        '404':
+          description: Producto no encontrado.
+        '500':
+          description: Ha ocurrido un problema con el servidor.
+  /product/image/{id}:
+    put:
+      tags:
+        - producto
+      summary: Actualizar imagen por su Id.
+      description: >-
+        Permite actualizar una imagen en particular buscando a este por medio de
+        su Id. (Se requieren permisos de administrador para realizar esta
+        acción.)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: token
+          in: header
+          required: true
+          description: >-
+            Es necesario tener permisos de administrador para actualizar una
+            imagen.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        description: Estructura del body con los datos de la imagen actualizada.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/new_image'
+      responses:
+        '200':
+          description: Imagen actualizada exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/image'
+        '401':
+          description: Token invalido.
+        '403':
+          description: Se requiere permisos de administrador para realizar esta acción.
+        '404':
+          description: Imagen no encontrada.
+        '500':
+          description: Ha ocurrido un problema con el servidor.
+    delete:
+      tags:
+        - producto
+      summary: Eliminar imagen por su Id.
+      description: >-
+        Permite eliminar una imagen en particular buscando a este por medio de
+        su Id. (Se requieren permisos de administrador para realizar esta
+        acción.)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: token
+          in: header
+          required: true
+          description: >-
+            Es necesario tener permisos de administrador para eliminar una
+            imagen.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Imagen eliminada exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/deleted_image'
+        '401':
+          description: Token invalido.
+        '403':
+          description: Se requiere permisos de administrador para realizar esta acción.
+        '404':
+          description: Imagen no encontrada.
+        '500':
+          description: Ha ocurrido un problema con el servidor.
+  /order:
+    get:
+      tags:
+        - pedido
+      summary: Lista de pedidos.
+      description: >-
+        Retorna un arreglo con todo los pedidos existentes en la base de datos.
+        (Se requieren permisos de administrador para realizar esta acción.)
+      parameters:
+        - name: token
+          in: header
+          description: >-
+            Es necesario tener permisos de administrador para ver la lista de
+            pedidos.
+          required: true
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: >-
+            Permite buscar uno o varios pedidos por su estado actual. (Los
+            estados son definidos al momento de crear un pedido nuevo o al
+            modificar uno ya existente.)
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+              default: new
+              enum:
+                - new
+                - confirmed
+                - preparing
+                - sending
+                - delivered
+      responses:
+        '200':
+          description: Operación exitosa.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/order'
+        '401':
+          description: Token invalido.
+        '403':
+          description: Se requiere permisos de administrador para realizar esta acción.
+        '500':
+          description: Ha ocurrido un problema con el servidor.
+  /order/new:
+    post:
+      tags:
+        - pedido
+      summary: Crear un nuevo pedido.
+      description: Permite crear un nuevo pedido.
+      parameters:
+        - name: token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: >-
+          Estructura del objeto pedido. (En tipo de pago solo se puede insertar
+          uno de los siguientes datos [cash, credit card, debit])
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/new_order'
+      responses:
+        '200':
+          description: Pedido creado exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/created_order'
+        '400':
+          description: La información recibida no es válida o falta información necesaria.
+        '401':
+          description: Token invalido.
+        '500':
+          description: Ha ocurrido un problema con el servidor.
+  /user/{user_id}/order:
+    get:
+      tags:
+        - pedido
+      summary: Obtener lista de pedidos de un usuario por su Id.
+      description: >-
+        Permite traer todos los pedidos de un usuario especifico buscando a este
+        por medio de su Id.
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: token
+          in: header
+          required: true
+          description: >-
+            Un usuario administrador podra acceder a la lista de pedidos de
+            cualquier usuario mientras que un usuario comun esta limitado
+            unicamente a ver su propia información.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Operación exitosa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/user_order'
+        '401':
+          description: Token invalido.
+        '404':
+          description: Usuario no encontrado.
+        '500':
+          description: Ha ocurrido un problema con el servidor.
+  /order/{id}:
+    get:
+      tags:
+        - pedido
+      summary: Obtener pedido por su Id.
+      description: >-
+        Permite obtener un pedido en particular buscando a este por medio de su
+        Id. (Un usuario administrador podra acceder a un pedido de cualquier
+        usuario mientras que un usuario comun esta limitado unicamente a ver un
+        pedido hecho por el mismo.)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Operación exitosa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/order'
+        '401':
+          description: Token invalido.
+        '403':
+          description: Se requiere permisos de administrador para realizar esta acción.
+        '404':
+          description: Pedido no encontrado.
+        '500':
+          description: Ha ocurrido un problema con el servidor.
+    put:
+      tags:
+        - pedido
+      summary: Actualizar pedido por su Id.
+      description: >-
+        Permite actualizar un pedido en particular buscando a este por medio de
+        su Id. (Se requieren permisos de administrador para realizar esta
+        acción.)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: token
+          in: header
+          required: true
+          description: >-
+            Es necesario tener permisos de administrador para modificar un
+            pedido.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        description: >-
+          Estructura del body con los datos del pedido actualizado. El estado
+          unicamente puede ser uno de los siguientes datos [new, confirmed,
+          preparing, sending, delivered]. Al igual que las imagenes los items
+          que se agreguen en este endpoint se agregaran como items nuevos al
+          pedido.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/update_order'
+      responses:
+        '200':
+          description: Pedido actualizado exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/updated_order'
+        '400':
+          description: La información recibida no es válida o falta información necesaria.
+        '401':
+          description: Token invalido.
+        '403':
+          description: Se requiere permisos de administrador para realizar esta acción.
+        '500':
+          description: Ha ocurrido un problema con el servidor.
+    delete:
+      tags:
+        - pedido
+      summary: Eliminar pedido por su Id.
+      description: >-
+        Permite eliminar un pedido en particular buscando a este por medio de su
+        Id. (Se requieren permisos de administrador para realizar esta acción.)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: token
+          in: header
+          required: true
+          description: >-
+            Es necesario tener permisos de administrador para eliminar un
+            pedido.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Pedido eliminado exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/deleted_order'
+        '401':
+          description: Token invalido.
+        '403':
+          description: Se requiere permisos de administrador para realizar esta acción.
+        '404':
+          description: Pedido no encontrado.
+        '500':
+          description: Ha ocurrido un problema con el servidor.
+  /order/item/{id}:
+    put:
+      tags:
+        - pedido
+      summary: Modificar item por su Id.
+      description: >-
+        Permite modificar un item en particular buscando a este por medio de su
+        Id. (Se requieren permisos de administrador para realizar esta acción.)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: token
+          in: header
+          required: true
+          description: Es necesario tener permisos de administrador para modificar un item.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        description: Estructura del body con los datos del item actualizado.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/update_item'
+      responses:
+        '200':
+          description: Item eliminado exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/item'
+        '401':
+          description: Token invalido.
+        '403':
+          description: Se requiere permisos de administrador para realizar esta acción.
+        '500':
+          description: Ha ocurrido un problema con el servidor.
+    delete:
+      tags:
+        - pedido
+      summary: Eliminar item por su Id.
+      description: >-
+        Permite eliminar un item en particular buscando a este por medio de su
+        Id. (Se requieren permisos de administrador para realizar esta acción.)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: token
+          in: header
+          required: true
+          description: Es necesario tener permisos de administrador para eliminar un item.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Item eliminado exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/deleted_item'
+        '401':
+          description: Token invalido.
+        '403':
+          description: Se requiere permisos de administrador para realizar esta acción.
+        '404':
+          description: Item no encontrado.
+        '500':
+          description: Ha ocurrido un problema con el servidor.
+components:
+  schemas:
+    user:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        username:
+          type: string
+        name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        address:
+          type: string
+        is_admin:
+          type: boolean
+          default: false
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    login:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+      required:
+        - email
+        - password
+    register:
+      type: object
+      properties:
+        username:
+          type: string
+        name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        address:
+          type: string
+        password:
+          type: string
+          format: password
+        is_admin:
+          type: boolean
+          default: false
+      required:
+        - username
+        - email
+        - phone
+        - address
+        - password
+        - is_admin
+    user_token:
+      type: object
+      properties:
+        token:
+          type: string
+        data:
+          $ref: '#/components/schemas/user'
+    deleted_user:
+      type: object
+      properties:
+        message:
+          type: string
+          default: User deleted successfully.
+        status:
+          type: integer
+          default: 200
+    product:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        short_name:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        price:
+          type: number
+          format: float
+        available:
+          type: boolean
+          default: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/image'
+    image:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        path:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    new:
+      type: object
+      properties:
+        short_name:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        price:
+          type: number
+          format: float
+        available:
+          type: boolean
+        image:
+          type: array
+          items:
+            $ref: '#/components/schemas/new_image'
+      required:
+        - short_name
+        - name
+        - price
+        - category
+    new_image:
+      type: object
+      properties:
+        path:
+          type: string
+      required:
+        - path
+    created_product:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        short_name:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        price:
+          type: number
+          format: float
+        available:
+          type: boolean
+          default: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        image:
+          type: array
+          items:
+            $ref: '#/components/schemas/new_image'
+    deleted_product:
+      type: object
+      properties:
+        message:
+          type: string
+          default: Product deleted successfully.
+        status:
+          type: integer
+          default: 200
+    deleted_image:
+      type: object
+      properties:
+        message:
+          type: string
+          default: Image deleted successfully.
+        status:
+          type: integer
+          default: 200
+    order:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        status:
+          type: string
+          default: new
+        total:
+          type: number
+          format: float
+        send_to:
+          type: string
+          default: user's address
+        payment_type:
+          type: string
+          default: cash
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/item'
+        user:
+          $ref: '#/components/schemas/user'
+    item:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        amount:
+          type: integer
+          default: 1
+        total_item:
+          type: number
+          format: float
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        product:
+          $ref: '#/components/schemas/product'
+    new_order:
+      type: object
+      properties:
+        send_to:
+          type: string
+          default: user's address
+        payment_type:
+          type: string
+          default: cash
+        item:
+          type: array
+          items:
+            $ref: '#/components/schemas/item_product'
+      required:
+        - send_to
+        - payment_type
+    item_product:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        amount:
+          type: integer
+          default: 1
+      required:
+        - uuid
+    created_order:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        status:
+          type: string
+          default: new
+        send_to:
+          type: string
+          default: user's address
+        payment_type:
+          type: string
+          default: cash
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        item:
+          type: array
+          items:
+            $ref: '#/components/schemas/item_product'
+        user:
+          $ref: '#/components/schemas/user'
+    order_no_user:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        status:
+          type: string
+          default: new
+        total:
+          type: number
+          format: float
+        send_to:
+          type: string
+          default: user's address
+        payment_type:
+          type: string
+          default: cash
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/item'
+    user_order:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        username:
+          type: string
+        name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        address:
+          type: string
+        is_admin:
+          type: boolean
+          default: false
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        orders:
+          type: array
+          items:
+            $ref: '#/components/schemas/order_no_user'
+    update_order:
+      type: object
+      properties:
+        status:
+          type: string
+          default: new
+        send_to:
+          type: string
+        payment_type:
+          type: string
+          default: cash
+        item:
+          type: array
+          items:
+            $ref: '#/components/schemas/item_product'
+    updated_order:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        status:
+          type: string
+          default: new
+        send_to:
+          type: string
+          default: user's address
+        payment_type:
+          type: string
+          default: cash
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        item:
+          type: array
+          items:
+            $ref: '#/components/schemas/item_product'
+    deleted_order:
+      type: object
+      properties:
+        message:
+          type: string
+          default: Order deleted successfully.
+        status:
+          type: integer
+          default: 200
+    update_item:
+      type: object
+      properties:
+        amount:
+          type: integer
+          default: 1
+      required:
+        - amount
+    deleted_item:
+      type: object
+      properties:
+        message:
+          type: string
+          default: Item deleted successfully.
+        status:
+          type: integer
+          default: 200
